@@ -1,0 +1,30 @@
+# Desired state for every repository in the organisation.
+#
+# One directive per line. Settings apply to every repo listed. Changing a
+# value here is the only way to change a repository: the whole point is that
+# nothing is configured by hand, because two repositories configured by hand
+# drift and nothing notices.
+#
+# The rulesets themselves are not here yet. They are applied and would need
+# the same treatment; this file covers repository settings only, and says so
+# rather than implying coverage it does not have.
+
+repo maestro-core
+repo maestro-pi-config
+repo maestro-governance
+
+# Squash only. The ruleset already restricts merge methods; leaving the repo
+# settings permissive means the two disagree, and a reader cannot tell which
+# one is the intent.
+setting allow_squash_merge true
+setting allow_merge_commit false
+setting allow_rebase_merge false
+
+# A merged branch has served its purpose.
+setting delete_branch_on_merge true
+
+# Unused surfaces are attack surface and rot. Issues stay: they are how a
+# finding outlives a conversation.
+setting has_wiki false
+setting has_projects false
+setting has_issues true

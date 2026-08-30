@@ -1,0 +1,21 @@
+[package]
+name = "maestro-governance"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Desired state for the repositories, and the drift from it"
+
+[[bin]]
+name = "governance"
+path = "src/main.rs"
+
+# No application dependencies. GitHub is reached through the `gh` CLI, which
+# already holds the credentials and the API surface; a crate would add a
+# second auth path for no gain.
+[dependencies]
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+too_many_lines = "warn"
+cognitive_complexity = "warn"
+too_many_arguments = "warn"
