@@ -13,7 +13,31 @@ use std::process::Command;
 const THRESHOLD: &str = "0.85";
 
 /// Pairs we have looked at and chosen to keep, with the reason.
-const ACCEPTED: &[(&str, &str)] = &[];
+const ACCEPTED: &[(&str, &str)] = &[
+    (
+        "drift_org <-> drift",
+        "Two named comparisons over one implementation, differing only in which \
+         part of the baseline they read. Fusing them would take a scope flag.",
+    ),
+    (
+        "read <-> read_org",
+        "read_org is one expression delegating to read. That is what the shape \
+         is supposed to look like after factoring; the alternative is a scope \
+         flag that switches meaning, which is worse.",
+    ),
+    (
+        "read <-> read_settings",
+        "Same: a named entry point over the one implementation.",
+    ),
+    (
+        "read_org <-> read_present",
+        "Three named readers differing only in their queries. The similarity is \
+         the signature of correct delegation -- this gate flagged the four \
+         near-identical bodies that existed before, and they are gone.",
+    ),
+    ("read_settings <-> read_org", "Same three readers."),
+    ("read_settings <-> read_present", "Same three readers."),
+];
 
 /// `path:lines function name <-> path:lines function name` -> `name <-> name`.
 /// Line numbers move whenever anything above them moves.
