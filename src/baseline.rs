@@ -13,19 +13,7 @@ pub struct Baseline {
     pub repos: Vec<String>,
     pub settings: Vec<(String, String)>,
     pub org: Vec<(String, String)>,
-    pub present: Vec<Expected>,
-}
-
-/// An object whose body this format cannot express -- a ruleset, a security
-/// configuration -- asserted to exist and to be in a given state. Owning the
-/// nested JSON here would mean reimplementing GitHub's schema; asserting
-/// presence costs nothing and still turns a deleted ruleset into a failure
-/// rather than a silence.
-#[derive(Debug)]
-pub struct Expected {
-    pub kind: String,
-    pub name: String,
-    pub state: String,
+    pub rules: Vec<(String, String)>,
 }
 
 /// One setting that does not match.
@@ -54,15 +42,8 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
             (Some("org"), Some(key), Some(value)) => {
                 b.org.push((key.to_owned(), value.to_owned()));
             }
-            (Some("present"), Some(kind), Some(name)) => {
-                let Some(state) = parts.next() else {
-                    return Err(format!("line {}: `present` needs a state", n + 1));
-                };
-                b.present.push(Expected {
-                    kind: kind.to_owned(),
-                    name: name.to_owned(),
-                    state: state.to_owned(),
-                });
+            (Some("rule"), Some(kind), Some(source)) => {
+                b.rules.push((kind.to_owned(), source.to_owned()));
             }
             (Some(other), _, _) => {
                 return Err(format!("line {}: unknown directive `{other}`", n + 1));
@@ -79,16 +60,23 @@ pub fn drift_org(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<
     compare(&baseline.org, actual, UNREADABLE)
 }
 
-/// Keyed `<kind>/<name>` so a ruleset and a configuration cannot collide.
-pub fn drift_present(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
-    let wanted: Vec<(String, String)> = baseline
-        .present
+/// The rules in effect on one repository's default branch, keyed by rule type
+/// with the source (`Organization` or `Repository`) as the value.
+pub fn drift_rules(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
+    baseline
+        .rules
         .iter()
-        .map(|e| (format!("{}/{}", e.kind, e.name), e.state.clone()))
-        .collect();
-    // A different sentinel on purpose: a setting we could not read is not the
-    // same failure as an object that is not there.
-    compare(&wanted, actual, "<absent>")
+        .filter_map(|(kind, source)| {
+            let observed = actual.get(kind).map_or("<not in effect>", String::as_str);
+            // Membership, not equality: a rule may apply from the organisation
+            // and the repository at the same time.
+            (!observed.split(',').any(|s| s == source)).then(|| Drift {
+                key: kind.clone(),
+                desired: source.clone(),
+                actual: observed.to_owned(),
+            })
+        })
+        .collect()
 }
 
 /// A setting the reading does not carry counts as drift. Treating it as
@@ -134,35 +122,49 @@ mod tests {
         );
     }
 
-    /// Rulesets and security configurations are nested JSON that this format
-    /// cannot express, and pretending otherwise would be worse than not
-    /// covering them. What it can do is assert they exist and are active, so
-    /// a deleted ruleset is a failure rather than a silence.
+    /// Listing organisation rulesets needs "Administration" organisation
+    /// permissions **write** -- GitHub offers no read-only way to see them.
+    /// The audit reads the rules actually in effect on each branch instead,
+    /// which needs only repository read and is better evidence: it proves the
+    /// rule applies, not merely that a ruleset object exists somewhere.
     #[test]
-    fn a_present_directive_asserts_existence_without_owning_the_body() {
-        let b = parse("present ruleset floor-no-destruction active\n").expect("parses");
-        assert_eq!(b.present.len(), 1);
-        assert_eq!(b.present[0].kind, "ruleset");
-        assert_eq!(b.present[0].name, "floor-no-destruction");
-        assert_eq!(b.present[0].state, "active");
+    fn a_rule_directive_names_a_type_and_where_it_must_come_from() {
+        let b = parse("rule deletion Organization\n").expect("parses");
+        assert_eq!(b.rules.len(), 1);
+        assert_eq!(b.rules[0].0, "deletion");
+        assert_eq!(b.rules[0].1, "Organization");
     }
 
     #[test]
-    fn a_missing_expected_object_is_drift() {
-        let b = parse("present ruleset ghost active\n").expect("parses");
-        let d = drift_present(&b, &BTreeMap::new());
+    fn a_rule_not_in_effect_is_drift() {
+        let b = parse("rule deletion Organization\n").expect("parses");
+        let d = drift_rules(&b, &BTreeMap::new());
         assert_eq!(d.len(), 1);
-        assert_eq!(d[0].actual, "<absent>");
+        assert_eq!(d[0].actual, "<not in effect>");
+    }
+
+    /// A rule in effect from the wrong place is drift: a repository-level copy
+    /// of the floor can be deleted by whoever owns that repository, which is
+    /// the whole reason the floor lives on the organisation.
+    /// A rule can be in effect from the organisation *and* from the
+    /// repository at once. Collapsing that to one value loses the organisation
+    /// entry and reports drift on a fleet that is correct -- which is what the
+    /// first version of this did.
+    #[test]
+    fn a_rule_in_effect_from_several_sources_satisfies_any_of_them() {
+        let b = parse("rule deletion Organization\n").expect("parses");
+        let actual =
+            BTreeMap::from([("deletion".to_owned(), "Organization,Repository".to_owned())]);
+        assert!(drift_rules(&b, &actual).is_empty());
     }
 
     #[test]
-    fn an_object_present_but_in_the_wrong_state_is_drift() {
-        let b = parse("present ruleset floor active\n").expect("parses");
-        let actual = BTreeMap::from([("ruleset/floor".to_owned(), "evaluate".to_owned())]);
-        let d = drift_present(&b, &actual);
+    fn a_rule_from_the_wrong_source_is_drift() {
+        let b = parse("rule deletion Organization\n").expect("parses");
+        let actual = BTreeMap::from([("deletion".to_owned(), "Repository".to_owned())]);
+        let d = drift_rules(&b, &actual);
         assert_eq!(d.len(), 1);
-        assert_eq!(d[0].actual, "evaluate");
-        assert_eq!(d[0].desired, "active");
+        assert_eq!(d[0].actual, "Repository");
     }
 
     #[test]

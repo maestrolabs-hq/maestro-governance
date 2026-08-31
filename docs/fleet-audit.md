@@ -33,6 +33,21 @@ A fine-grained personal access token, stored as the repository secret
 Read-only throughout. The audit reports drift; it does not correct it, and a
 token that could would be a token worth stealing.
 
+## Why the rules are read per repository
+
+Listing organisation rulesets (`GET /orgs/{org}/rulesets`) requires
+**"Administration" organisation permissions (write)**. GitHub offers no
+read-only path to that list, so an audit built on it would need a token that
+can rewrite the rules it is checking -- stored as a repository secret, on a
+schedule, unattended.
+
+The audit reads `GET /repos/{owner}/{repo}/rules/branches/{branch}` instead.
+That needs only repository read, and it is the better assertion: it proves a
+rule is in effect on the branch rather than that a ruleset object exists
+somewhere. It also records where each rule comes from, so a repository-level
+copy of the organisation floor -- which whoever owns that repository could
+delete -- is reported as drift rather than passing.
+
 Set it with:
 
 ```text

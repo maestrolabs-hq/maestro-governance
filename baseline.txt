@@ -45,16 +45,20 @@ org properties.tier.default_value mature
 # unchanged, so this line is checked and never applied.
 org two_factor_requirement_enabled true
 
-# ── Objects this format does not own ──────────────────────────────────────
-# Rulesets and security configurations are nested JSON. Expressing them here
-# would mean reimplementing GitHub's schema and getting it subtly wrong.
-# Asserting they exist and are active costs nothing and turns a deleted
-# ruleset into a failure instead of a silence.
+# ── Rules that must be in effect ──────────────────────────────────────────
+# Read from each repository's own branch-rules endpoint, not from the
+# organisation ruleset list: listing rulesets needs organisation Administration
+# *write*, and an audit token that could rewrite the rules it checks is worth
+# stealing. This is also the better assertion -- it proves the rule applies to
+# the branch rather than that a ruleset object exists somewhere.
+#
+# The source matters. A repository-level copy of the floor can be removed by
+# whoever owns that repository, which is the whole reason the floor lives on
+# the organisation.
 
-present ruleset floor-no-destruction active
-present ruleset floor-release-tags active
-present ruleset mature-discipline active
-present security-configuration maestrolabs-baseline enforced
+rule deletion Organization
+rule non_fast_forward Organization
+rule pull_request Organization
 
 # ── Per repository ────────────────────────────────────────────────────────
 setting web_commit_signoff_required true

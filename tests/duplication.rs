@@ -26,17 +26,16 @@ const ACCEPTED: &[(&str, &str)] = &[
          flag that switches meaning, which is worse.",
     ),
     (
+        "read <-> read_rules",
+        "read_rules aggregates sources per rule type instead of letting the \
+         last one win, so it does its own gathering rather than calling read. \
+         The shapes still rhyme; the behaviour deliberately differs.",
+    ),
+    (
         "read <-> read_settings",
         "Same: a named entry point over the one implementation.",
     ),
-    (
-        "read_org <-> read_present",
-        "Three named readers differing only in their queries. The similarity is \
-         the signature of correct delegation -- this gate flagged the four \
-         near-identical bodies that existed before, and they are gone.",
-    ),
     ("read_settings <-> read_org", "Same three readers."),
-    ("read_settings <-> read_present", "Same three readers."),
 ];
 
 /// `path:lines function name <-> path:lines function name` -> `name <-> name`.
