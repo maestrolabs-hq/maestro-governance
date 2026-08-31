@@ -80,5 +80,10 @@ setting web_commit_signoff_required true
 file clippy.toml         5f1fb12f231aa38532f5458cee702a2e2e846fb3 maestro-core maestro-pi-config maestro-governance
 file deny.toml           72256df1189d8862c4f38a2d89c3b8bdb9ed01a3 maestro-core maestro-pi-config maestro-governance
 file rust-toolchain.toml 31314b84f32c67c357ab4e792458d46fd2576b31 maestro-core maestro-pi-config maestro-governance
-file .editorconfig       0e21de119bf75de9c8ec8626125f55dce96a5577
-file .gitattributes      d0d6371de329ffb232ba2fb9b79732165a702be7
+file .editorconfig       f42596d8f156e015325eb35c6d486ebdf24cbd9a
+file .gitattributes      9c560345b36a76737ad8f428ecb622b85ec61bf2
+file .gitignore          6fe6cf2f9581663fa0fe047fe70f74de5eb7741f
+file LICENSE             e26e66663765b4c0fcf8cb1b82f54f7999d95444
+file NORTHSTAR.md        7d1c3def2052f57172d385b63c3a21c1d73d3a22
+file .github/dependabot.yml 93c36bca91b3e5ff1e1aa80386ffe951fc4af380 maestro-core maestro-pi-config maestro-governance
+file .github/CODEOWNERS  a0e75ffb482bb771988af9a65b439cdf8db859c9
