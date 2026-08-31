@@ -21,7 +21,7 @@ these files are read from a fixed path by a tool that offers no remote source.
 | --- | --- | --- |
 | CI job definitions | `.github/workflows/*-fast.yml`, `*-heavy.yml` | `workflow_call` |
 | Hook definitions | `.github/.pre-commit-hooks.yaml` | referenced by URL, revision pinned |
-| Action pinning policy | `.github/zizmor.yml` | fetched by the workflow that applies it |
+| Action pinning policy | `.github` repo, `zizmor.yml` | checked out by the workflow that applies it |
 | Community health files | `.github/` | GitHub serves them org-wide |
 
 **Track what they do not.** `clippy.toml`, `deny.toml`, `rust-toolchain.toml`,
