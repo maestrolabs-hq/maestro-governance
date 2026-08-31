@@ -1,0 +1,92 @@
+# Nothing runs the audit but a person remembering to, which is the same class
+# of problem as a setting applied by hand. This runs it weekly and makes the
+# result impossible to miss: the report lands in the run summary every time,
+# and drift opens a tracking issue that closes itself once the fleet is clean.
+name: Fleet audit
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # Monday 07:00 UTC
+  workflow_dispatch:      # the only way to prove the workflow before it first fires
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write   # the single drift tracking issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The workflow's own GITHUB_TOKEN is scoped to this repository: it cannot
+      # read organisation settings, rulesets or a sibling repository. Without a
+      # separate token the audit would see nothing and report a clean fleet,
+      # which is worse than not running. So it stops here instead.
+      - name: Require the audit token
+        env:
+          AUDIT_TOKEN: ${{ secrets.GOVERNANCE_AUDIT_TOKEN }}
+        run: |
+          if [ -z "$AUDIT_TOKEN" ]; then
+            echo "::error::GOVERNANCE_AUDIT_TOKEN is not set. A fine-grained token with organisation read access is required; see docs/fleet-audit.md."
+            exit 1
+          fi
+
+      - name: Audit the fleet
+        id: audit
+        env:
+          GH_TOKEN: ${{ secrets.GOVERNANCE_AUDIT_TOKEN }}
+        run: |
+          set +e
+          cargo run --quiet -- plan > audit.txt 2> audit.err
+          status=$?
+          set -e
+          cat audit.err >&2 || true
+          if [ ! -s audit.txt ]; then
+            echo "::error::the audit produced no report (exit $status); see the log above"
+            exit 1
+          fi
+          echo "drifted=$([ "$status" -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+
+      # Published whether or not there is drift: a clean report is the evidence
+      # that the audit ran and saw the whole fleet.
+      - name: Publish the report
+        if: always()
+        run: |
+          {
+            echo "## Fleet audit"
+            echo
+            echo '```text'
+            cat audit.txt 2>/dev/null || echo "(no report)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or close the tracking issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFTED: ${{ steps.audit.outputs.drifted }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Fleet drift"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ "$DRIFTED" = "true" ]; then
+            body=$(printf 'The weekly audit found drift from `baseline.txt`.\n\n```text\n%s\n```\n\n%s\n' "$(cat audit.txt)" "$RUN_URL")
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "$body"
+            else
+              gh issue create --title "$title" --body "$body"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "The fleet matches the baseline again. $RUN_URL"
+          fi
