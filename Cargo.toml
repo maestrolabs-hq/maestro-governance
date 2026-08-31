@@ -1,3 +1,10 @@
+# The desired state of every repository in the organisation, and the drift from it.
+#
+# Split into a library and a binary so the comparison half can be tested
+# without a network: `governance` is pure text-in, drift-out, and the binary
+# owns everything that shells out to `gh`. A test that needs a network is a
+# test that gets disabled.
+
 [package]
 name = "maestro-governance"
 version = "0.1.0"
