@@ -14,6 +14,16 @@ pub struct Baseline {
     pub settings: Vec<(String, String)>,
     pub org: Vec<(String, String)>,
     pub rules: Vec<(String, String)>,
+    pub files: Vec<Tracked>,
+}
+
+/// A file every repository in `scope` must hold, byte for byte. An empty
+/// scope means every repository.
+#[derive(Debug)]
+pub struct Tracked {
+    pub path: String,
+    pub blob: String,
+    pub scope: Vec<String>,
 }
 
 /// One setting that does not match.
@@ -45,6 +55,13 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
             (Some("rule"), Some(kind), Some(source)) => {
                 b.rules.push((kind.to_owned(), source.to_owned()));
             }
+            (Some("file"), Some(path), Some(blob)) => {
+                b.files.push(Tracked {
+                    path: path.to_owned(),
+                    blob: blob.to_owned(),
+                    scope: parts.map(str::to_owned).collect(),
+                });
+            }
             (Some(other), _, _) => {
                 return Err(format!("line {}: unknown directive `{other}`", n + 1));
             }
@@ -62,6 +79,23 @@ pub fn drift_org(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<
 
 /// The rules in effect on one repository's default branch, keyed by rule type
 /// with the source (`Organization` or `Repository`) as the value.
+/// Every listed repository must hold this exact file content. The value is a
+/// git blob hash, which GitHub returns directly and `git hash-object`
+/// reproduces, so the baseline can be written from a known-good copy.
+pub fn drift_files(
+    baseline: &Baseline,
+    repo: &str,
+    actual: &BTreeMap<String, String>,
+) -> Vec<Drift> {
+    let wanted: Vec<(String, String)> = baseline
+        .files
+        .iter()
+        .filter(|f| f.scope.is_empty() || f.scope.iter().any(|r| r == repo))
+        .map(|f| (f.path.clone(), f.blob.clone()))
+        .collect();
+    compare(&wanted, actual, "<missing>")
+}
+
 pub fn drift_rules(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
     baseline
         .rules
@@ -127,6 +161,58 @@ mod tests {
     /// The audit reads the rules actually in effect on each branch instead,
     /// which needs only repository read and is better evidence: it proves the
     /// rule applies, not merely that a ruleset object exists somewhere.
+    /// Some configuration cannot be centralised: cargo, rustup and
+    /// editorconfig read from the repository root and offer no remote source.
+    /// Duplication that cannot be removed still has to be noticed when it
+    /// diverges, so the baseline records the exact content each copy must
+    /// have.
+    #[test]
+    fn a_file_directive_pins_a_path_to_a_blob() {
+        let b = parse("file clippy.toml abc123\n").expect("parses");
+        assert_eq!(b.files[0].path, "clippy.toml");
+        assert_eq!(b.files[0].blob, "abc123");
+    }
+
+    /// Not every shared file belongs in every repository: clippy.toml means
+    /// nothing without Rust. A trailing repository list narrows the entry, and
+    /// no list means all of them.
+    #[test]
+    fn a_file_can_be_scoped_to_named_repositories() {
+        let b = parse("file clippy.toml abc123 alpha beta\n").expect("parses");
+        assert_eq!(b.files[0].scope, ["alpha", "beta"]);
+        assert!(
+            parse("file .editorconfig abc\n").expect("parses").files[0]
+                .scope
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_file_outside_its_scope_is_not_drift() {
+        let b = parse("file clippy.toml abc123 alpha\n").expect("parses");
+        assert!(drift_files(&b, "beta", &BTreeMap::new()).is_empty());
+        assert_eq!(drift_files(&b, "alpha", &BTreeMap::new()).len(), 1);
+    }
+
+    #[test]
+    fn a_file_with_different_content_is_drift() {
+        let b = parse("file clippy.toml abc123\n").expect("parses");
+        let actual = BTreeMap::from([("clippy.toml".to_owned(), "def456".to_owned())]);
+        let d = drift_files(&b, "alpha", &actual);
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].actual, "def456");
+    }
+
+    /// A repository simply missing the file is drift too, and a different
+    /// failure from one that holds the wrong version.
+    #[test]
+    fn a_missing_file_is_drift() {
+        let b = parse("file clippy.toml abc123\n").expect("parses");
+        let d = drift_files(&b, "alpha", &BTreeMap::new());
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].actual, "<missing>");
+    }
+
     #[test]
     fn a_rule_directive_names_a_type_and_where_it_must_come_from() {
         let b = parse("rule deletion Organization\n").expect("parses");

@@ -118,6 +118,17 @@ pub fn read_org() -> Result<BTreeMap<String, String>, String> {
 
 /// The rules actually in effect on a repository's default branch, keyed by
 /// rule type with its source. Repository-scoped, so the audit token needs no
+/// Every file at the repository root, by path, with its git blob hash. One
+/// call rather than one per file, and the hash is what GitHub already stores
+/// -- `git hash-object` reproduces it, so a baseline entry can be written from
+/// a copy known to be right.
+pub fn read_files(repo: &str) -> Result<BTreeMap<String, String>, String> {
+    read(&[[
+        &format!("repos/{}/{repo}/git/trees/{}", org(), default_branch()),
+        r#".tree[] | select(.type=="blob") | "\(.path)=\(.sha)""#,
+    ]])
+}
+
 /// organisation write -- which listing the rulesets would have required.
 pub fn read_rules(repo: &str) -> Result<BTreeMap<String, String>, String> {
     let lines = gh_lines(&[

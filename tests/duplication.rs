@@ -26,6 +26,21 @@ const ACCEPTED: &[(&str, &str)] = &[
          flag that switches meaning, which is worse.",
     ),
     (
+        "drift_files <-> drift_rules",
+        "Both project part of the baseline into the shape `compare` takes, \
+         then call it. The projections differ -- one filters by repository \
+         scope, the other builds a composite key -- and fusing them would \
+         take a flag that switches meaning.",
+    ),
+    (
+        "read_org <-> read_files",
+        "Named readers over the one `read`. Same as the entries below.",
+    ),
+    (
+        "read_settings <-> read_files",
+        "Named readers over the one `read`.",
+    ),
+    (
         "read <-> read_rules",
         "read_rules aggregates sources per rule type instead of letting the \
          last one win, so it does its own gathering rather than calling read. \
