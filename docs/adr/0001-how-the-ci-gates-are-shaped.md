@@ -28,8 +28,10 @@ Each check is therefore its own job:
 ```text
 fast / rust-format    fast / py-arch      fast / ts-types
 fast / rust-lint      fast / py-types     fast / ts-arch
+fast / rust-docs      fast / py-lint      fast / ts-lint
 ...                   ...                 ...
 common / secrets-scan   common / actions-security   common / dependency-review
+common / prose
 ```
 
 Jobs run in parallel, so the wall clock is the slowest check rather than the
