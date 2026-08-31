@@ -55,6 +55,47 @@ Sending a blob hash or a rule name to the repository settings endpoint is
 accepted, ignored, and returns 200 -- which is exactly how a tool comes to
 report success while changing nothing.
 
+## Stopping
+
+`just offboard <repo>` takes a repository out of the baseline. It edits one
+text file and makes no API call:
+
+```text
+No longer managed:
+
+  repo maestro-core
+  tracked files             0
+  settings left as they are 9
+  rules left in effect      3
+
+Nothing on GitHub changed. Those controls stay exactly as they are --
+they simply stop being reported if they drift.
+```
+
+A file scoped to that repository alone goes with it. A file shared with others
+loses one name and keeps the rest. An unscoped file covers whatever repositories
+remain, so it is left alone. Column alignment is preserved, because this file is
+read and diffed by hand.
+
+Offboarding something that was never managed is refused rather than reported as
+success -- otherwise a typo in a repository name looks exactly like it worked.
+
+### There is no `destroy`
+
+`terraform destroy` removes what terraform built. This builds nothing.
+
+- **Settings** cannot be un-set. `allow_merge_commit` is always true or false;
+  there is no third state where it stops existing. The inverse of setting it is
+  setting it to something else, which is a different baseline, not the absence
+  of one.
+- **Rules** are real objects that could be deleted, but this tool did not create
+  them, and deliberately cannot see them: listing rulesets needs organisation
+  write, which would let the audit rewrite what it audits.
+- **Tracked files** are fixed by a commit.
+- **Organisation controls** are never written here at all.
+
+So `offboard` is the honest inverse: stop watching, change nothing.
+
 ## What it does not do
 
 It does not write organisation controls, and `apply` **fails** rather than
