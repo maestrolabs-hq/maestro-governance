@@ -33,10 +33,48 @@ pub struct Drift {
     pub key: String,
     pub desired: String,
     pub actual: String,
+    /// Which reading produced this, and therefore which endpoint can fix it.
+    /// Carried on the value rather than tracked by the caller, because the
+    /// caller merged all three into one vector and sent the lot to the
+    /// repository settings endpoint.
+    pub kind: Kind,
+}
+
+/// The three things read, kept apart because only one of them is writable by
+/// the endpoint `apply` uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// A repository setting. Writable by a `PATCH` on the repository.
+    Setting,
+    /// A branch rule. Lives in a ruleset, not in repository settings.
+    Rule,
+    /// Tracked file content, compared by blob hash. Fixed by a commit.
+    File,
+    /// An organisation-wide control. Never written by this tool.
+    Org,
+}
+
+/// The `key=value` pairs that may be sent to the repository settings endpoint.
+///
+/// Anything that is not a setting is dropped here rather than at the call site,
+/// so there is one place that decides what is writable.
+#[must_use]
+pub fn settings_fields(drift: &[Drift]) -> Vec<String> {
+    drift
+        .iter()
+        .filter(|d| d.kind == Kind::Setting)
+        .map(|d| format!("{}={}", d.key, d.desired))
+        .collect()
 }
 
 /// One directive per line, `<kind> <argument...>`, after `provision.txt` in
 /// maestro-pi-config -- readable without a parser and diffable without a tool.
+///
+/// # Errors
+///
+/// Returns the offending line when a directive is unknown or malformed. A
+/// baseline that half-parses is worse than one that refuses: the unread half
+/// becomes a control nobody is checking.
 pub fn parse(text: &str) -> Result<Baseline, String> {
     let mut b = Baseline::default();
     for (n, line) in text.lines().enumerate() {
@@ -77,6 +115,7 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
 
 /// Pending keys the API has started answering. Not drift -- an invitation to
 /// promote the line from `pending` to a real setting.
+#[must_use]
 pub fn arrived(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<String> {
     baseline
         .pending
@@ -88,8 +127,9 @@ pub fn arrived(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<St
 
 /// Organisation-wide settings. Same comparison as the repository one, over a
 /// different reading.
+#[must_use]
 pub fn drift_org(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
-    compare(&baseline.org, actual, UNREADABLE)
+    compare(&baseline.org, actual, UNREADABLE, Kind::Org)
 }
 
 /// The rules in effect on one repository's default branch, keyed by rule type
@@ -97,6 +137,7 @@ pub fn drift_org(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<
 /// Every listed repository must hold this exact file content. The value is a
 /// git blob hash, which GitHub returns directly and `git hash-object`
 /// reproduces, so the baseline can be written from a known-good copy.
+#[must_use]
 pub fn drift_files(
     baseline: &Baseline,
     repo: &str,
@@ -108,9 +149,10 @@ pub fn drift_files(
         .filter(|f| f.scope.is_empty() || f.scope.iter().any(|r| r == repo))
         .map(|f| (f.path.clone(), f.blob.clone()))
         .collect();
-    compare(&wanted, actual, "<missing>")
+    compare(&wanted, actual, "<missing>", Kind::File)
 }
 
+#[must_use]
 pub fn drift_rules(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
     baseline
         .rules
@@ -123,6 +165,7 @@ pub fn drift_rules(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Ve
                 key: kind.clone(),
                 desired: source.clone(),
                 actual: observed.to_owned(),
+                kind: Kind::Rule,
             })
         })
         .collect()
@@ -130,8 +173,9 @@ pub fn drift_rules(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Ve
 
 /// A setting the reading does not carry counts as drift. Treating it as
 /// satisfied is how an audit reports a clean fleet it never looked at.
+#[must_use]
 pub fn drift(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
-    compare(&baseline.settings, actual, UNREADABLE)
+    compare(&baseline.settings, actual, UNREADABLE, Kind::Setting)
 }
 
 const UNREADABLE: &str = "<unreadable>";
@@ -140,6 +184,7 @@ fn compare(
     wanted: &[(String, String)],
     actual: &BTreeMap<String, String>,
     missing: &str,
+    kind: Kind,
 ) -> Vec<Drift> {
     wanted
         .iter()
@@ -149,6 +194,7 @@ fn compare(
                 key: key.clone(),
                 desired: desired.clone(),
                 actual: observed.to_owned(),
+                kind,
             })
         })
         .collect()

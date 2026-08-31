@@ -28,15 +28,24 @@ pub fn org() -> String {
     env::var("MAESTRO_GITHUB_ORG").unwrap_or_else(|_| "maestrolabs-hq".to_owned())
 }
 
-pub fn apply_settings(repo: &str, drift: &[baseline::Drift]) -> Result<(), String> {
+/// Write the repository settings that drifted.
+///
+/// Only settings. A branch rule lives in a ruleset and a tracked file is fixed
+/// by a commit; sending either as a repository field is accepted, ignored and
+/// returns 200, which is how this reported success while changing nothing.
+pub fn apply_settings(repo: &str, drift: &[baseline::Drift]) -> Result<usize, String> {
+    let fields = baseline::settings_fields(drift);
+    if fields.is_empty() {
+        return Ok(0);
+    }
     let mut cmd = Command::new("gh");
     cmd.args(["api", "-X", "PATCH", &format!("repos/{}/{repo}", org())]);
-    for d in drift {
-        cmd.args(["-F", &format!("{}={}", d.key, d.desired)]);
+    for f in &fields {
+        cmd.args(["-F", f]);
     }
     let out = cmd.output().map_err(|e| format!("gh: {e}"))?;
     if out.status.success() {
-        Ok(())
+        Ok(fields.len())
     } else {
         Err(format!(
             "writing {repo}: {}",

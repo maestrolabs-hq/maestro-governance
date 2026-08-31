@@ -36,13 +36,24 @@ without a parser. Changing a repository means changing that file.
 
 ## What it covers
 
-Three kinds of line, and the difference matters:
+Six directives, and the difference matters, because only one of them is
+something `apply` can write:
 
+- `repo` -- a repository the baseline covers.
 - `setting` -- a repository setting. Read, compared, and **written** by `apply`.
-- `org` -- an organisation-wide setting. Read and compared; most are written by
-  hand because the API refuses them.
-- `present` -- an object whose body this format does not own: a ruleset, a
-  security configuration. Asserted to exist and to be in a given state.
+- `org` -- an organisation-wide setting. Read and compared, never written: most
+  are refused by the API, and the rest are too wide to change unattended.
+- `rule` -- a branch rule that must be in effect, and where it comes from.
+  Read and compared. It lives in a ruleset, so `apply` cannot write it.
+- `file` -- a tracked file, pinned by git blob hash, optionally scoped to named
+  repositories. Read and compared. It is fixed by a commit, not by an API call.
+- `pending` -- a control with no readable API yet, recorded so the audit prints
+  a promotion note the day the key becomes readable.
+
+`apply` writes `setting` lines and refuses outright if any other kind drifted.
+Sending a blob hash or a rule name to the repository settings endpoint is
+accepted, ignored, and returns 200 -- which is exactly how a tool comes to
+report success while changing nothing.
 
 ## What it does not do
 

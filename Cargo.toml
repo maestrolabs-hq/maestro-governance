@@ -6,6 +6,10 @@ rust-version = "1.85"
 license = "MIT"
 description = "Desired state for the repositories, and the drift from it"
 
+[lib]
+name = "governance"
+path = "src/lib.rs"
+
 [[bin]]
 name = "governance"
 path = "src/main.rs"
