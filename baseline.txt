@@ -87,3 +87,11 @@ file LICENSE             e26e66663765b4c0fcf8cb1b82f54f7999d95444
 file NORTHSTAR.md        7d1c3def2052f57172d385b63c3a21c1d73d3a22
 file .github/dependabot.yml 93c36bca91b3e5ff1e1aa80386ffe951fc4af380 maestro-core maestro-pi-config maestro-governance
 file .github/CODEOWNERS  a0e75ffb482bb771988af9a65b439cdf8db859c9
+
+# release-please reads these from wherever the workflow points it, so they sit
+# in their own directory rather than as two loosely-named files at the root of
+# .github. No workflow calls them yet: a release needs a token that is not the
+# default GITHUB_TOKEN, because GitHub raises no workflow run from a bot push
+# and the required checks would never report on a release pull request.
+file .github/release-please/config.json   10e6bde282930305e45b412158c5d9b91df726bf maestro-core maestro-pi-config maestro-governance
+file .github/release-please/manifest.json 466df71c83b8a7e33fc928e10a3b357954ff91b3 maestro-core maestro-pi-config maestro-governance
