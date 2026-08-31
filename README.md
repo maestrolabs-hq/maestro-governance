@@ -1,6 +1,6 @@
 <div align="center">
 
-# maestro-governance
+# Maestro-Governance
 
 **What the repositories should look like, and the drift from it**
 

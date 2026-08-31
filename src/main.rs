@@ -73,6 +73,20 @@ fn main() -> ExitCode {
         }
     };
 
+    // A pending control that has become readable is not drift; it is the
+    // signal to promote it into a real setting.
+    match github::read_org() {
+        Ok(actual) => {
+            for key in baseline::arrived(&desired, &actual) {
+                println!("  note: `{key}` is now readable. Promote it from `pending` to `org`.");
+            }
+        }
+        Err(e) => {
+            eprintln!("governance: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
+
     let total: usize = found.iter().map(|(_, d)| d.len()).sum::<usize>() + org_drift.len();
     if total == 0 {
         println!(

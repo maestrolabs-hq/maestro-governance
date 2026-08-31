@@ -15,6 +15,7 @@ pub struct Baseline {
     pub org: Vec<(String, String)>,
     pub rules: Vec<(String, String)>,
     pub files: Vec<Tracked>,
+    pub pending: Vec<(String, String)>,
 }
 
 /// A file every repository in `scope` must hold, byte for byte. An empty
@@ -55,6 +56,9 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
             (Some("rule"), Some(kind), Some(source)) => {
                 b.rules.push((kind.to_owned(), source.to_owned()));
             }
+            (Some("pending"), Some(key), Some(value)) => {
+                b.pending.push((key.to_owned(), value.to_owned()));
+            }
             (Some("file"), Some(path), Some(blob)) => {
                 b.files.push(Tracked {
                     path: path.to_owned(),
@@ -69,6 +73,17 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
         }
     }
     Ok(b)
+}
+
+/// Pending keys the API has started answering. Not drift -- an invitation to
+/// promote the line from `pending` to a real setting.
+pub fn arrived(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<String> {
+    baseline
+        .pending
+        .iter()
+        .filter(|(k, _)| actual.contains_key(k))
+        .map(|(k, _)| k.clone())
+        .collect()
 }
 
 /// Organisation-wide settings. Same comparison as the repository one, over a
@@ -166,6 +181,29 @@ mod tests {
     /// Duplication that cannot be removed still has to be noticed when it
     /// diverges, so the baseline records the exact content each copy must
     /// have.
+    /// Some controls are enabled in the web interface and exposed through no
+    /// API. They cannot be audited, and pretending they are covered would be
+    /// worse than saying so. A `pending` line records the intent and the exact
+    /// key to watch, and the audit reports when that key becomes readable --
+    /// so the control gets enforced the day it becomes enforceable rather than
+    /// whenever somebody happens to re-read the documentation.
+    #[test]
+    fn a_pending_directive_records_a_control_the_api_cannot_yet_reach() {
+        let b = parse("pending code_quality enabled\n").expect("parses");
+        assert_eq!(
+            b.pending,
+            [("code_quality".to_owned(), "enabled".to_owned())]
+        );
+    }
+
+    #[test]
+    fn a_pending_key_that_becomes_readable_is_reported() {
+        let b = parse("pending code_quality enabled\n").expect("parses");
+        assert!(arrived(&b, &BTreeMap::new()).is_empty());
+        let actual = BTreeMap::from([("code_quality".to_owned(), "disabled".to_owned())]);
+        assert_eq!(arrived(&b, &actual), ["code_quality"]);
+    }
+
     #[test]
     fn a_file_directive_pins_a_path_to_a_blob() {
         let b = parse("file clippy.toml abc123\n").expect("parses");

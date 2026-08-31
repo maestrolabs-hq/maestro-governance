@@ -26,6 +26,19 @@ const ACCEPTED: &[(&str, &str)] = &[
          flag that switches meaning, which is worse.",
     ),
     (
+        "arrived <-> drift",
+        "Same traversal, opposite question: arrived reports keys that have \
+         appeared, drift reports values that disagree.",
+    ),
+    (
+        "arrived <-> drift_files",
+        "Same traversal, opposite question.",
+    ),
+    (
+        "arrived <-> drift_rules",
+        "Same traversal, opposite question.",
+    ),
+    (
         "drift_files <-> drift_rules",
         "Both project part of the baseline into the shape `compare` takes, \
          then call it. The projections differ -- one filters by repository \
