@@ -10,7 +10,15 @@ that is claimed but absent. **P2** correctness or cost that bites at scale.
 
 ---
 
-## P0 -- the tool reports success while doing nothing
+## Done
+
+The two P0s and two P1s below were fixed in the same pass that found
+them. They are kept here because the failure is more instructive than the
+fix.
+
+---
+
+## ~~P0~~ FIXED -- the tool reported success while doing nothing
 
 ### 1. `plan` exits 0 on drift, so the weekly audit can never fire
 
@@ -83,7 +91,7 @@ refuses.
 
 ## P1 -- documented controls that do not exist
 
-### 3. The documented remediation command is not a recipe
+### 3. ~~The documented remediation command is not a recipe~~ FIXED
 
 `README.md:31` says:
 
@@ -110,7 +118,7 @@ is fetched and discarded.
 **Fix:** add `rule required_status_checks` lines naming the seven fast-tier
 contexts, per repo.
 
-### 5. `present` is documented and rejected
+### 5. ~~`present` is documented and rejected~~ FIXED
 
 `README.md:44` documents a `present` directive. `src/baseline.rs` accepts
 `repo`, `setting`, `org`, `rule`, `pending`, `file` -- and errors on anything
