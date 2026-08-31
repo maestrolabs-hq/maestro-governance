@@ -118,13 +118,21 @@ pub fn read_org() -> Result<BTreeMap<String, String>, String> {
 
 /// The rules actually in effect on a repository's default branch, keyed by
 /// rule type with its source. Repository-scoped, so the audit token needs no
-/// Every file at the repository root, by path, with its git blob hash. One
-/// call rather than one per file, and the hash is what GitHub already stores
-/// -- `git hash-object` reproduces it, so a baseline entry can be written from
-/// a copy known to be right.
+/// Every file in the repository, by path, with its git blob hash. One call
+/// rather than one per file, and the hash is what GitHub already stores --
+/// `git hash-object` reproduces it, so a baseline entry can be written from a
+/// copy known to be right.
+///
+/// `recursive=1` matters: without it the tree holds only root entries, and
+/// anything under a directory reads as missing while sitting there in plain
+/// sight.
 pub fn read_files(repo: &str) -> Result<BTreeMap<String, String>, String> {
     read(&[[
-        &format!("repos/{}/{repo}/git/trees/{}", org(), default_branch()),
+        &format!(
+            "repos/{}/{repo}/git/trees/{}?recursive=1",
+            org(),
+            default_branch()
+        ),
         r#".tree[] | select(.type=="blob") | "\(.path)=\(.sha)""#,
     ]])
 }
