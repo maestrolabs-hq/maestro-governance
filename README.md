@@ -1,6 +1,21 @@
+<div align="center">
+
 # maestro-governance
 
-What the repositories should look like, and what they actually do.
+**What the repositories should look like, and the drift from it**
+
+One baseline for the organisation. Audited weekly, reported never corrected.
+
+  <a href="https://github.com/maestrolabs-hq/maestro-governance/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/maestrolabs-hq/maestro-governance/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=1c1c1c&color=2ea043"></a>
+  <a href="https://github.com/maestrolabs-hq/maestro-governance/actions/workflows/heavy.yml"><img alt="Heavy" src="https://img.shields.io/github/actions/workflow/status/maestrolabs-hq/maestro-governance/heavy.yml?branch=main&style=for-the-badge&label=Heavy&labelColor=1c1c1c&color=8957e5"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/maestrolabs-hq/maestro-governance"><img alt="OpenSSF Scorecard" src="https://img.shields.io/ossf-scorecard/github.com/maestrolabs-hq/maestro-governance?style=for-the-badge&label=Scorecard&labelColor=1c1c1c"></a>
+  <a href="https://github.com/maestrolabs-hq/maestro-governance/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-1c1c1c?style=for-the-badge&labelColor=1c1c1c&color=0969da"></a>
+
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.98-CE422B?style=flat-square&logo=rust&logoColor=white">
+
+</div>
+
+---
 
 ## Why it exists
 
