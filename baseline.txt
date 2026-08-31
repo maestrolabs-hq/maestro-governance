@@ -91,7 +91,7 @@ setting visibility public
 
 file clippy.toml         5f1fb12f231aa38532f5458cee702a2e2e846fb3 maestro-core maestro-pi-config maestro-governance
 file deny.toml           72256df1189d8862c4f38a2d89c3b8bdb9ed01a3 maestro-core maestro-pi-config maestro-governance
-file rust-toolchain.toml 31314b84f32c67c357ab4e792458d46fd2576b31 maestro-core maestro-pi-config maestro-governance
+file rust-toolchain.toml 5acc60f542ec07ff85beecc25c3a7e348e3afc4e maestro-core maestro-pi-config maestro-governance
 file .editorconfig       f42596d8f156e015325eb35c6d486ebdf24cbd9a
 file .gitattributes      9c560345b36a76737ad8f428ecb622b85ec61bf2
 file .gitignore          6fe6cf2f9581663fa0fe047fe70f74de5eb7741f
