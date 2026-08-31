@@ -5,6 +5,9 @@
 //! hands them in, so every rule below is exercised by a test that constructs
 //! its input literally.
 
+mod offboard;
+pub use offboard::offboard;
+
 use std::collections::BTreeMap;
 
 /// What the repositories should look like.

@@ -32,6 +32,11 @@ plan:
 apply *FLAGS:
     cargo run --quiet -- apply {{FLAGS}}
 
+# Stop watching a repository. Edits baseline.txt and calls nothing; the
+# settings and rules on GitHub stay exactly as they are.
+offboard repo:
+    cargo run --quiet -- offboard {{repo}}
+
 # Run the quality gates. CI runs these same commands, not equivalents.
 check:
     cargo fmt --all --check

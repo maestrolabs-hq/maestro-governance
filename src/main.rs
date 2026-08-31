@@ -7,7 +7,8 @@ use governance::baseline;
 mod github;
 
 use std::env;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 /// Everything the baseline can be compared against, read once.
@@ -39,13 +40,13 @@ fn repo_root() -> PathBuf {
 }
 
 fn usage() -> ExitCode {
-    eprintln!("usage: governance <plan|apply [--auto-approve]>");
+    eprintln!("usage: governance <plan|apply [--auto-approve]|offboard <repo>>");
     ExitCode::FAILURE
 }
 
 fn main() -> ExitCode {
     let path = repo_root().join("baseline.txt");
-    let text = match std::fs::read_to_string(&path) {
+    let text = match fs::read_to_string(&path) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("governance: cannot read {}: {e}", path.display());
@@ -61,6 +62,13 @@ fn main() -> ExitCode {
     };
 
     let args: Vec<String> = env::args().skip(1).collect();
+
+    // Before gather(): offboarding edits a text file and reaches nothing, so it
+    // must not fail because GitHub is unreachable.
+    if args.first().map(String::as_str) == Some("offboard") {
+        return offboard(&path, &text, &desired, args.get(1).map(String::as_str));
+    }
+
     let Some(verb @ ("plan" | "apply")) = args.first().map(String::as_str) else {
         return usage();
     };
@@ -176,5 +184,59 @@ fn carry_out(
         }
     }
     println!("\nApply complete. {written} setting(s) changed.");
+    ExitCode::SUCCESS
+}
+
+/// Stop watching a repository. Edits the baseline and calls nothing.
+///
+/// Deliberately not named `destroy`. Nothing on GitHub changes: the settings
+/// and rules stay exactly as they are, they simply stop being reported when
+/// they drift. Naming it destroy would suggest the controls were removed.
+fn offboard(path: &Path, text: &str, before: &baseline::Baseline, repo: Option<&str>) -> ExitCode {
+    let Some(repo) = repo else {
+        eprintln!("usage: governance offboard <repo>");
+        return ExitCode::from(2);
+    };
+    let updated = match baseline::offboard(text, repo) {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("governance: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let after = match baseline::parse(&updated) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("governance: the result does not parse: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    println!(
+        "No longer managed:
+"
+    );
+    println!("  repo {repo}");
+    println!(
+        "  tracked files             {}",
+        before.files.len() - after.files.len()
+    );
+    println!("  settings left as they are {}", before.settings.len());
+    println!("  rules left in effect      {}", before.rules.len());
+    println!(
+        "
+Nothing on GitHub changed. Those controls stay exactly as they are --"
+    );
+    println!(
+        "they simply stop being reported if they drift.
+"
+    );
+
+    let removed = text.lines().count() - updated.lines().count();
+    if let Err(e) = fs::write(path, &updated) {
+        eprintln!("governance: {}: {e}", path.display());
+        return ExitCode::FAILURE;
+    }
+    println!("{}: {removed} line(s) removed.", path.display());
     ExitCode::SUCCESS
 }
