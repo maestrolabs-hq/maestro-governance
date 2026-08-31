@@ -12,6 +12,20 @@ use std::collections::BTreeMap;
 pub struct Baseline {
     pub repos: Vec<String>,
     pub settings: Vec<(String, String)>,
+    pub org: Vec<(String, String)>,
+    pub present: Vec<Expected>,
+}
+
+/// An object whose body this format cannot express -- a ruleset, a security
+/// configuration -- asserted to exist and to be in a given state. Owning the
+/// nested JSON here would mean reimplementing GitHub's schema; asserting
+/// presence costs nothing and still turns a deleted ruleset into a failure
+/// rather than a silence.
+#[derive(Debug)]
+pub struct Expected {
+    pub kind: String,
+    pub name: String,
+    pub state: String,
 }
 
 /// One setting that does not match.
@@ -37,6 +51,19 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
             (Some("setting"), Some(key), Some(value)) => {
                 b.settings.push((key.to_owned(), value.to_owned()));
             }
+            (Some("org"), Some(key), Some(value)) => {
+                b.org.push((key.to_owned(), value.to_owned()));
+            }
+            (Some("present"), Some(kind), Some(name)) => {
+                let Some(state) = parts.next() else {
+                    return Err(format!("line {}: `present` needs a state", n + 1));
+                };
+                b.present.push(Expected {
+                    kind: kind.to_owned(),
+                    name: name.to_owned(),
+                    state: state.to_owned(),
+                });
+            }
             (Some(other), _, _) => {
                 return Err(format!("line {}: unknown directive `{other}`", n + 1));
             }
@@ -46,14 +73,41 @@ pub fn parse(text: &str) -> Result<Baseline, String> {
     Ok(b)
 }
 
+/// Organisation-wide settings. Same comparison as the repository one, over a
+/// different reading.
+pub fn drift_org(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
+    compare(&baseline.org, actual, UNREADABLE)
+}
+
+/// Keyed `<kind>/<name>` so a ruleset and a configuration cannot collide.
+pub fn drift_present(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
+    let wanted: Vec<(String, String)> = baseline
+        .present
+        .iter()
+        .map(|e| (format!("{}/{}", e.kind, e.name), e.state.clone()))
+        .collect();
+    // A different sentinel on purpose: a setting we could not read is not the
+    // same failure as an object that is not there.
+    compare(&wanted, actual, "<absent>")
+}
+
 /// A setting the reading does not carry counts as drift. Treating it as
 /// satisfied is how an audit reports a clean fleet it never looked at.
 pub fn drift(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drift> {
-    baseline
-        .settings
+    compare(&baseline.settings, actual, UNREADABLE)
+}
+
+const UNREADABLE: &str = "<unreadable>";
+
+fn compare(
+    wanted: &[(String, String)],
+    actual: &BTreeMap<String, String>,
+    missing: &str,
+) -> Vec<Drift> {
+    wanted
         .iter()
         .filter_map(|(key, desired)| {
-            let observed = actual.get(key).map_or("<unreadable>", String::as_str);
+            let observed = actual.get(key).map_or(missing, String::as_str);
             (observed != desired).then(|| Drift {
                 key: key.clone(),
                 desired: desired.clone(),
@@ -66,6 +120,50 @@ pub fn drift(baseline: &Baseline, actual: &BTreeMap<String, String>) -> Vec<Drif
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_org_directive_is_scoped_to_the_organisation() {
+        let b = parse("org actions.sha_pinning_required true\n").expect("parses");
+        assert_eq!(
+            b.org,
+            [("actions.sha_pinning_required".to_owned(), "true".to_owned())]
+        );
+        assert!(
+            b.settings.is_empty(),
+            "an org setting is not a repo setting"
+        );
+    }
+
+    /// Rulesets and security configurations are nested JSON that this format
+    /// cannot express, and pretending otherwise would be worse than not
+    /// covering them. What it can do is assert they exist and are active, so
+    /// a deleted ruleset is a failure rather than a silence.
+    #[test]
+    fn a_present_directive_asserts_existence_without_owning_the_body() {
+        let b = parse("present ruleset floor-no-destruction active\n").expect("parses");
+        assert_eq!(b.present.len(), 1);
+        assert_eq!(b.present[0].kind, "ruleset");
+        assert_eq!(b.present[0].name, "floor-no-destruction");
+        assert_eq!(b.present[0].state, "active");
+    }
+
+    #[test]
+    fn a_missing_expected_object_is_drift() {
+        let b = parse("present ruleset ghost active\n").expect("parses");
+        let d = drift_present(&b, &BTreeMap::new());
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].actual, "<absent>");
+    }
+
+    #[test]
+    fn an_object_present_but_in_the_wrong_state_is_drift() {
+        let b = parse("present ruleset floor active\n").expect("parses");
+        let actual = BTreeMap::from([("ruleset/floor".to_owned(), "evaluate".to_owned())]);
+        let d = drift_present(&b, &actual);
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0].actual, "evaluate");
+        assert_eq!(d[0].desired, "active");
+    }
 
     #[test]
     fn a_baseline_lists_its_repositories_and_settings() {

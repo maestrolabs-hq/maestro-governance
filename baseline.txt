@@ -12,6 +12,7 @@
 repo maestro-core
 repo maestro-pi-config
 repo maestro-governance
+repo .github
 
 # Squash only. The ruleset already restricts merge methods; leaving the repo
 # settings permissive means the two disagree, and a reader cannot tell which
@@ -28,3 +29,32 @@ setting delete_branch_on_merge true
 setting has_wiki false
 setting has_projects false
 setting has_issues true
+
+# ── Organisation ──────────────────────────────────────────────────────────
+# These apply to every repository, including ones that do not exist yet, and
+# are the reason the estate does not depend on anyone remembering.
+
+org actions.sha_pinning_required true
+org actions.default_workflow_permissions read
+org actions.can_approve_pull_request_reviews false
+org properties.tier.required true
+org properties.tier.default_value mature
+
+# Two-factor authentication is required for every member. It is set through
+# the web interface only: PATCH /orgs accepts the field and silently leaves it
+# unchanged, so this line is checked and never applied.
+org two_factor_requirement_enabled true
+
+# ── Objects this format does not own ──────────────────────────────────────
+# Rulesets and security configurations are nested JSON. Expressing them here
+# would mean reimplementing GitHub's schema and getting it subtly wrong.
+# Asserting they exist and are active costs nothing and turns a deleted
+# ruleset into a failure instead of a silence.
+
+present ruleset floor-no-destruction active
+present ruleset floor-release-tags active
+present ruleset mature-discipline active
+present security-configuration maestrolabs-baseline enforced
+
+# ── Per repository ────────────────────────────────────────────────────────
+setting web_commit_signoff_required true

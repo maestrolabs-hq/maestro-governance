@@ -19,11 +19,30 @@ just apply --auto-approve  make it so
 `baseline.txt` is the desired state -- one directive per line, readable
 without a parser. Changing a repository means changing that file.
 
-## What it does not cover yet
+## What it covers
 
-The branch rulesets. They are applied and enforced, but by hand, which is the
-same hole one level up. `baseline.txt` says so rather than implying a coverage
-it does not have.
+Three kinds of line, and the difference matters:
+
+- `setting` -- a repository setting. Read, compared, and **written** by `apply`.
+- `org` -- an organisation-wide setting. Read and compared; most are written by
+  hand because the API refuses them.
+- `present` -- an object whose body this format does not own: a ruleset, a
+  security configuration. Asserted to exist and to be in a given state.
+
+## What it does not do
+
+It does not write organisation controls, and `apply` **fails** rather than
+skipping them quietly -- a tool that reports success while leaving half the
+drift in place is worse than one that refuses.
+
+It does not own the body of a ruleset. Expressing that nested JSON here would
+mean reimplementing GitHub's schema and getting it subtly wrong; asserting
+presence costs nothing and still turns a deleted ruleset into a failure
+instead of a silence.
+
+`two_factor_requirement_enabled` is checked and never applied: `PATCH /orgs`
+accepts the field and silently leaves it unchanged, so it is a web-interface
+setting that this tool can only report on.
 
 ## Design
 
