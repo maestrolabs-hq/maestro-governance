@@ -63,6 +63,18 @@ rule pull_request Organization
 # ── Per repository ────────────────────────────────────────────────────────
 setting web_commit_signoff_required true
 
+# Public, and audited as such. Every security feature this estate relies on --
+# code scanning, secret scanning, push protection, dependency review -- is free
+# on a public repository and billed per active committer on a private one, and
+# Actions minutes are unmetered on public runners and metered on private ones
+# at two times for Windows and ten for macOS. The heavy tier runs both weekly.
+#
+# A repository flipped to private would therefore start billing quietly while
+# every other check stayed green. The `visibility-is-frozen` organisation
+# ruleset refuses the change outright; this line is the second line of defence,
+# because a ruleset can be deleted and an audit notices that a setting moved.
+setting visibility public
+
 # ── Configuration that cannot be centralised ──────────────────────────────
 # cargo, rustup and editorconfig read these from the repository root and offer
 # no remote source, so every repository carries its own copy. Duplication that

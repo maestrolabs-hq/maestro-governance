@@ -21,6 +21,7 @@ const READABLE: &[&str] = &[
     "has_projects",
     "has_issues",
     "web_commit_signoff_required",
+    "visibility",
 ];
 
 pub fn org() -> String {

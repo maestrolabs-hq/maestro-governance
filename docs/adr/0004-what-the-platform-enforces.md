@@ -21,9 +21,25 @@ where a new repository inherits them before anyone configures it.
 | `floor-no-destruction` | every repository | `deletion`, `non_fast_forward` |
 | `floor-release-tags` | every repository, `refs/tags/v*` | `deletion`, `non_fast_forward`, `update` |
 | `mature-discipline` | `tier=mature` | `pull_request`, squash only, zero approvals |
+| `visibility-is-frozen` | every repository | no visibility transition, in any direction |
 
 No bypass actors on any of them, including the owner. A floor with an
 exemption for the person most likely to be in a hurry is not a floor.
+
+`visibility-is-frozen` is a **repository-target** ruleset rather than a branch
+one, and it exists for a cost reason rather than a security one. Every feature
+this estate relies on -- code scanning, secret scanning, push protection,
+dependency review -- is free on a public repository and billed per active
+committer on a private one. Actions minutes are unmetered on public runners
+and metered on private ones, at two times for Windows and ten for macOS, and
+the heavy tier runs both every week.
+
+A repository flipped to private would therefore start billing quietly while
+every other check stayed green. The rule refuses the transition outright, for
+the owner too -- verified by attempting it and being refused with *"Visibility
+can't be changed by this user because of rulesets"*. `baseline.txt` also
+records the expected visibility, because a ruleset can be deleted and an audit
+notices a setting that moved.
 
 `mature-discipline` selects on the **`tier` custom property**, which is
 `required` with default `mature`. A repository created tomorrow carries the
