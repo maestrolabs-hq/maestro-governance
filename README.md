@@ -53,3 +53,12 @@ The dependency list is empty.
 `plan` and `apply` follow `terraform`, and match `pi-config` in the sibling
 repository: a plan reports only real differences, and an apply refuses to act
 without `--auto-approve`.
+
+## Decisions
+
+| ADR | What it settles |
+| --- | --- |
+| [0001](docs/adr/0001-how-the-ci-gates-are-shaped.md) | Every gate, per language, and why each tool is there |
+| [0002](docs/adr/0002-local-hooks-mirror-the-fast-tier.md) | What runs on commit, what waits for push, and why |
+| [0003](docs/adr/0003-shared-where-possible-tracked-where-not.md) | What is centralised, what cannot be, and how the rest is tracked |
+| [0004](docs/adr/0004-what-the-platform-enforces.md) | Rulesets, organisation parameters and the security configuration |

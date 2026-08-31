@@ -62,15 +62,39 @@ independent advisory databases across the two tiers. Two sources, because the
 point of a redundant pass is that they disagree before a vulnerability is
 public in both.
 
-Different, with a reason:
+#### Every tool, and what it is for
 
-| Check | Rust | TypeScript | Python |
-| --- | --- | --- | --- |
-| types | in the compiler | `ts-types`, tsc | `py-types`, mypy and ty |
-| architecture | Cargo, structurally | `ts-arch`, dependency-cruiser | `py-arch`, import-linter |
-| coverage floor | measured only | gated, branch | gated, branch |
-| oldest supported | `msrv` | `node-matrix` | `python-matrix` |
-| mutation | `cargo-mutants` | Stryker | `mutmut` |
+Fast tier — each row is a required context.
+
+| Concern | Rust | TypeScript | Python | Why the check exists |
+| --- | --- | --- | --- | --- |
+| format | `cargo fmt --check` | `biome format` | `ruff format --check` | Formatting arguments cost review time and settle nothing |
+| lint | `cargo clippy -D warnings` (pedantic) | `biome lint` | `ruff check` | Bug patterns a compiler accepts |
+| types | in `rustc` | `tsc --noEmit` | `mypy --strict` and `ty` | A type error is a different failure from a style one |
+| tests | `cargo test` | `vitest` | `pytest` | — |
+| copy-paste | `similarity-rs` | `similarity-ts` | *(none yet)* | Tree edit distance, so renaming cannot hide a clone |
+| unused deps | `cargo machete` | `knip` | `deptry` | A dependency nobody uses is supply-chain surface nobody watches |
+| advisories | `cargo deny` | `npm audit` | `pip-audit` | Known vulnerabilities in what actually ships |
+| licences, sources | `cargo deny` | — | — | A licence nobody chose, or a crate from a registry nobody approved |
+| architecture | Cargo, structurally | `dependency-cruiser` | `import-linter` | A layering rule is a README sentence until it fails a build |
+| coverage floor | *measured only* | vitest, branch | `pytest --cov-fail-under`, branch | Only meaningful where branches are counted |
+
+Heavy tier — evidence, never required.
+
+| Concern | Rust | TypeScript | Python | Why |
+| --- | --- | --- | --- | --- |
+| other platforms | `cross-platform` | `cross-platform` | `cross-platform` | `cfg(not(unix))` and path handling are invisible on Linux |
+| oldest supported | `msrv` | `node-matrix` | `python-matrix` | The pinned toolchain hides whether the floor still builds |
+| second advisory source | `cargo-audit` | `osv-scanner` | `uv audit`, `osv-scanner` | Two databases disagree before a vulnerability is public in both |
+| mutation | `cargo-mutants` | Stryker | `mutmut` | Coverage says a line ran; mutation says a bug there would fail something |
+| docs | `cargo doc -D warnings` | — | ruff `D`/`DOC` in lint | Broken intra-doc links compile and rot silently |
+| supply-chain score | `scorecard` | `scorecard` | `scorecard` | Published and comparable, not self-assessed |
+
+Language-agnostic, in `common-*`: `gitleaks` over full history, because a secret
+committed and later removed is still published; `zizmor`, because workflows are
+code with access to the repository; `dependency-review`, because a pull request
+that adds a vulnerable dependency should say so before it merges; CodeQL, which
+analyses Rust and `actions` and would analyse TypeScript when there is any.
 
 **Architecture** is a gate where the language allows any module to import any
 other, because a layering rule is a sentence in a README until something fails
