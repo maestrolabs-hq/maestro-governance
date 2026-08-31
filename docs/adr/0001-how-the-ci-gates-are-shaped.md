@@ -124,6 +124,53 @@ context for them would gate nothing.
 Every parser here reads a file one of our own tools wrote, and property-based
 tests cover that far more cheaply.
 
+### Releases carry evidence, not just a tarball
+
+A release is cut by release-please from conventional commit messages, which
+the `commits-are-conventional` ruleset enforces so the changelog cannot
+silently miss a change.
+
+Every release ships:
+
+| Asset | What it is for |
+| --- | --- |
+| the built artefact | the thing |
+| `sbom.cdx.json` | CycloneDX, generated from the lockfile -- what was compiled |
+| `sbom.spdx.json` | SPDX, from GitHub's dependency graph -- what GitHub believes is here |
+| `SHA256SUMS` | every asset, and itself an attested subject |
+| `<tag>.intoto.jsonl` | SLSA build provenance |
+
+Two SBOMs from two sources on purpose: they should agree, and a consumer can
+check that they do. The provenance bundle is named with that exact suffix
+because OpenSSF Scorecard's Signed-Releases probe recognises provenance only
+by it.
+
+The release stays a **draft** until every asset is uploaded, then is published
+in one step. A release is immutable once out, so a consumer never sees one
+that is half-populated.
+
+release-please pushes with a GitHub App token scoped to `contents` and
+`pull-requests`, not the default `GITHUB_TOKEN`: GitHub raises no workflow run
+from a default-token push, so the required checks would never report and every
+release pull request would sit unmergeable.
+
+### What enforces what
+
+Three mechanisms, and knowing which one covers a thing tells you what happens
+when it is wrong.
+
+| Mechanism | Covers | On failure |
+| --- | --- | --- |
+| Organisation ruleset | destruction, tags, pull requests, visibility, commit messages | the push or merge is refused |
+| Required status check | every fast-tier context | the merge is blocked |
+| `governance plan` | repository settings, applied rules, shared file contents | the weekly audit fails and opens an issue |
+
+Anything in none of those three is enforced by nobody. Today that is: the
+`ci.yml` caller in each repository, which differs legitimately per repository
+and is therefore only checked by being run; `AGENTS.md`, whose first lines
+differ by design; and GitHub's Code quality findings, which have no API and so
+cannot be recorded at all.
+
 ## Consequences
 
 Renaming a job renames a required context, and a ruleset still naming the old
