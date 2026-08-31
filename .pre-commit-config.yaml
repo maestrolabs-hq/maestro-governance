@@ -1,5 +1,6 @@
-# Pre-commit framework configuration (https://pre-commit.com).
-# Enable with: pre-commit install --install-hooks (done by `just setup`).
+# Hook configuration, run by prek (https://github.com/j178/prek) -- the Rust
+# implementation of the pre-commit protocol, so linting Rust needs no Python.
+# Enable with: prek install --install-hooks (done by `just setup`).
 #
 # Both hook types are declared here rather than passed as install flags, so the
 # plain install command wires the merge gate too: a merge that commits on its
