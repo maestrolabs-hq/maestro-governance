@@ -3,7 +3,7 @@
 //! GitHub is reached through the `gh` CLI: it already holds the credentials
 //! and the API surface, so a crate would add a second auth path for no gain.
 
-mod baseline;
+use governance::baseline;
 mod github;
 
 use std::env;
@@ -114,8 +114,24 @@ fn main() -> ExitCode {
     println!("\nPlan: {total} setting(s) to change.");
 
     if verb == "plan" {
-        return ExitCode::SUCCESS;
+        // Non-zero because the fleet audit derives its only signal from this.
+        // Exiting 0 here made every scheduled run green, left the tracking
+        // issue unopened, and closed any issue a human had opened.
+        return ExitCode::FAILURE;
     }
+    carry_out(&args, &org_drift, &found, total)
+}
+
+/// Everything after the plan has been printed and the verb is `apply`.
+///
+/// Split from `main` because deciding what to write is a different question
+/// from deciding what to report, and the two were 110 lines in one place.
+fn carry_out(
+    args: &[String],
+    org_drift: &[baseline::Drift],
+    found: &[(String, Vec<baseline::Drift>)],
+    total: usize,
+) -> ExitCode {
     if !args.iter().any(|a| a == "--auto-approve") {
         println!("\nRefusing to change {total} setting(s) unprompted.");
         println!("Review the plan above, then: just apply --auto-approve");
@@ -129,16 +145,36 @@ fn main() -> ExitCode {
         eprintln!("They are checked, not applied. Correct them and re-run.");
         return ExitCode::FAILURE;
     }
-    for (repo, drift) in &found {
+    let unwritable: usize = found
+        .iter()
+        .flat_map(|(_, d)| d.iter())
+        .filter(|d| d.kind != baseline::Kind::Setting)
+        .count();
+    if unwritable > 0 {
+        eprintln!(
+            "\ngovernance: {unwritable} drift(s) are not repository settings and this tool does not write them."
+        );
+        eprintln!("A branch rule lives in a ruleset; a tracked file is fixed by a commit.");
+        eprintln!("They are checked, not applied. Correct them and re-run.");
+        return ExitCode::FAILURE;
+    }
+    let mut written = 0;
+    for (repo, drift) in found {
         if drift.is_empty() {
             continue;
         }
-        if let Err(e) = github::apply_settings(repo, drift) {
-            eprintln!("governance: {e}");
-            return ExitCode::FAILURE;
+        match github::apply_settings(repo, drift) {
+            Ok(n) => {
+                written += n;
+                println!("  updated {repo}");
+            }
+            Err(e) => {
+                eprintln!("governance: {e}");
+                eprintln!("{written} setting(s) were already written before this failed.");
+                return ExitCode::FAILURE;
+            }
         }
-        println!("  updated {repo}");
     }
-    println!("\nApply complete. {total} setting(s) changed.");
+    println!("\nApply complete. {written} setting(s) changed.");
     ExitCode::SUCCESS
 }

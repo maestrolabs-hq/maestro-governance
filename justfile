@@ -21,6 +21,17 @@ install:
 setup:
     prek install --install-hooks
 
+# What differs between the baseline and the organisation. Reads only.
+# Exits non-zero when it finds drift, which is what the fleet audit reads.
+plan:
+    cargo run --quiet -- plan
+
+# Correct the repository settings that drifted. Refuses without approval, and
+# refuses outright on anything it cannot write -- branch rules and tracked
+# files are reported, never PATCHed.
+apply *FLAGS:
+    cargo run --quiet -- apply {{FLAGS}}
+
 # Run the quality gates. CI runs these same commands, not equivalents.
 check:
     cargo fmt --all --check
