@@ -10,6 +10,29 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+/// Everything the baseline can be compared against, read once.
+///
+/// Organisation-wide readings first: a drift there is wider than any single
+/// repository's, because it covers repositories that do not exist yet.
+type Gathered = (Vec<baseline::Drift>, Vec<(String, Vec<baseline::Drift>)>);
+
+fn gather(desired: &baseline::Baseline) -> Result<Gathered, String> {
+    let org_drift = baseline::drift_org(desired, &github::read_org()?);
+
+    let mut found = Vec::new();
+    for repo in &desired.repos {
+        let mut d = baseline::drift(desired, &github::read_settings(repo)?);
+        d.extend(baseline::drift_rules(desired, &github::read_rules(repo)?));
+        d.extend(baseline::drift_files(
+            desired,
+            repo,
+            &github::read_files(repo)?,
+        ));
+        found.push((repo.clone(), d));
+    }
+    Ok((org_drift, found))
+}
+
 fn repo_root() -> PathBuf {
     env::var_os("MAESTRO_GOVERNANCE_REPO")
         .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), PathBuf::from)
@@ -42,33 +65,13 @@ fn main() -> ExitCode {
         return usage();
     };
 
-    // Organisation-wide first: these cover repositories that do not exist yet,
-    // so a drift here is wider than any single repository's.
-    let org_drift = match github::read_org() {
-        Ok(actual) => baseline::drift_org(&desired, &actual),
+    let (org_drift, found) = match gather(&desired) {
+        Ok(v) => v,
         Err(e) => {
             eprintln!("governance: {e}");
             return ExitCode::FAILURE;
         }
     };
-    let mut found = Vec::new();
-    for repo in &desired.repos {
-        let mut d = match github::read_settings(repo) {
-            Ok(actual) => baseline::drift(&desired, &actual),
-            Err(e) => {
-                eprintln!("governance: {e}");
-                return ExitCode::FAILURE;
-            }
-        };
-        match github::read_rules(repo) {
-            Ok(actual) => d.extend(baseline::drift_rules(&desired, &actual)),
-            Err(e) => {
-                eprintln!("governance: {e}");
-                return ExitCode::FAILURE;
-            }
-        }
-        found.push((repo.clone(), d));
-    }
 
     let total: usize = found.iter().map(|(_, d)| d.len()).sum::<usize>() + org_drift.len();
     if total == 0 {

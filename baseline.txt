@@ -62,3 +62,23 @@ rule pull_request Organization
 
 # ── Per repository ────────────────────────────────────────────────────────
 setting web_commit_signoff_required true
+
+# ── Configuration that cannot be centralised ──────────────────────────────
+# cargo, rustup and editorconfig read these from the repository root and offer
+# no remote source, so every repository carries its own copy. Duplication that
+# cannot be removed still has to be noticed when it diverges: the value is the
+# git blob hash, which GitHub already stores and `git hash-object` reproduces.
+#
+# What could be centralised has been. The hook definitions live in
+# maestrolabs-hq/.github as .pre-commit-hooks.yaml and zizmor's pinning policy
+# is fetched by the workflow that applies it, so neither appears below.
+
+# A trailing repository list narrows an entry. clippy.toml means nothing in a
+# repository with no Rust, so the three Rust files name theirs; the two that
+# apply to any repository name none.
+
+file clippy.toml         5f1fb12f231aa38532f5458cee702a2e2e846fb3 maestro-core maestro-pi-config maestro-governance
+file deny.toml           72256df1189d8862c4f38a2d89c3b8bdb9ed01a3 maestro-core maestro-pi-config maestro-governance
+file rust-toolchain.toml 31314b84f32c67c357ab4e792458d46fd2576b31 maestro-core maestro-pi-config maestro-governance
+file .editorconfig       0e21de119bf75de9c8ec8626125f55dce96a5577
+file .gitattributes      d0d6371de329ffb232ba2fb9b79732165a702be7
