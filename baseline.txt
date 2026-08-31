@@ -98,7 +98,7 @@ file .gitignore          6fe6cf2f9581663fa0fe047fe70f74de5eb7741f
 file LICENSE             e26e66663765b4c0fcf8cb1b82f54f7999d95444
 file NORTHSTAR.md        7d1c3def2052f57172d385b63c3a21c1d73d3a22
 file .github/dependabot.yml 93c36bca91b3e5ff1e1aa80386ffe951fc4af380 maestro-core maestro-pi-config maestro-governance
-file .github/CODEOWNERS  a0e75ffb482bb771988af9a65b439cdf8db859c9
+file .github/CODEOWNERS  b67f83794bd9f2198467fd016b19d84cb92ad265
 
 # release-please reads these from wherever the workflow points it, so they sit
 # in their own directory rather than as two loosely-named files at the root of
@@ -118,7 +118,7 @@ file CHANGELOG.md c10db98123e10bb0bfcfb1ddff3198c1c586146f maestro-core maestro-
 # whitespace hooks, and records why the TypeScript tiers are not called yet.
 # Scoping the entry is how a real difference stays visible as a decision rather
 # than hiding as drift.
-file .pre-commit-config.yaml 6e9e9a57914f009a6bd13d03b590dea366069eea maestro-core maestro-governance
+file .pre-commit-config.yaml afc7538b24b577405ddd8527b92677bce56cad09 maestro-core maestro-governance
 file .github/workflows/heavy.yml 288116c5779ca25a7b524fa131eb0b82101d7af1 maestro-core maestro-governance
 
 # ── Controls the API cannot yet reach ─────────────────────────────────────
