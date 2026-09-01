@@ -45,14 +45,56 @@ every check in it is a required context. It is the contract: nothing reaches
 the default branch without these passing.
 
 **Heavy** runs weekly and on demand, and nothing in it is ever required. It
-holds the checks worth running but not worth waiting for — a matrix across
-three operating systems, an oldest-supported-version build, a supply-chain
-score, mutation testing.
+holds the checks worth running but not worth waiting for — an
+oldest-supported-version build, a supply-chain score, mutation testing, a WSL
+toolchain run.
 
 The split is by cost, not by importance. A team that waits twenty-five minutes
 for a one-line fix learns to bypass its own gates, and that habit then applies
 to the checks that mattered. What matters for heavy is freshness: a result
 older than about a week is not evidence of anything.
+
+#### The operating-system matrix moved to fast, on measurement
+
+It was first placed in heavy, on the reasoning above: a matrix across three
+operating systems is the archetypal check worth running and not worth waiting
+for.
+
+The reasoning was sound and the premise was not. This estate's fast tier
+finishes in **twenty-four seconds**, not twenty-five minutes, and every
+repository here is public, where Actions minutes are unmetered — the two-times
+Windows and ten-times macOS multipliers in ADR-0004 apply to private
+repositories and bill nothing on these. Neither cost the placement avoided was
+real.
+
+What the placement did cost was real. `cross-platform` sat in a tier that runs
+on a Monday schedule against `main`, so it never saw a branch: a pull request
+could break Windows, show seven green contexts, merge, and surface the failure
+up to a week later in a run nobody is required to read. For the one property
+this estate states most loudly — Windows, macOS and Linux, with the same
+behaviour on each, per maestro-core ADR-0001 — that was the weakest coverage
+of any rule it has.
+
+So it is a fast-tier required context, per operating system:
+
+```text
+fast / cross-platform (windows-latest)
+fast / cross-platform (macos-latest)
+```
+
+One context per matrix leg, so a failure names the platform before anyone
+opens it — the same argument as one job per concern. The consequence is that
+adding an operating system adds a required context, and the ruleset changes in
+the same pull request.
+
+WSL is the exception that stayed in heavy, because it is not a fourth
+platform. To a binary it is Linux: same `cfg(unix)`, same separator, so a
+fourth matrix leg would recompile what `ubuntu-latest` already covers. What is
+untested there is the *toolchain* — WSL appends the Windows `PATH` to its own,
+which put a broken `just` shim ahead of the real binary once already. So
+`wsl-toolchain` runs `just setup` and `just check` rather than the compiler,
+and stays evidence: the failure it catches is environmental, not something a
+pull request introduces.
 
 ### Each language's checks come from its own toolchain
 
@@ -80,12 +122,14 @@ Fast tier — each row is a required context.
 | licences, sources | `cargo deny` | — | — | A licence nobody chose, or a crate from a registry nobody approved |
 | architecture | Cargo, structurally | `dependency-cruiser` | `import-linter` | A layering rule is a README sentence until it fails a build |
 | coverage floor | *measured only* | vitest, branch | `pytest --cov-fail-under`, branch | Only meaningful where branches are counted |
+| other platforms | `cross-platform` | `cross-platform` | `cross-platform` | `cfg(not(unix))` and path handling are invisible on Linux |
+| no machine in a path | `no-absolute-paths` | `no-absolute-paths` | `no-absolute-paths` | A hardcoded path does not fail where it is authored |
 
 Heavy tier — evidence, never required.
 
 | Concern | Rust | TypeScript | Python | Why |
 | --- | --- | --- | --- | --- |
-| other platforms | `cross-platform` | `cross-platform` | `cross-platform` | `cfg(not(unix))` and path handling are invisible on Linux |
+| WSL toolchain | `wsl-toolchain` | — | — | The task runner, not the compiler: WSL is Linux to a binary |
 | oldest supported | `msrv` | `node-matrix` | `python-matrix` | The pinned toolchain hides whether the floor still builds |
 | second advisory source | `cargo-audit` | `osv-scanner` | `uv audit`, `osv-scanner` | Two databases disagree before a vulnerability is public in both |
 | mutation | `cargo-mutants` | Stryker | `mutmut` | Coverage says a line ran; mutation says a bug there would fail something |

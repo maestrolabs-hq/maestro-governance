@@ -44,8 +44,15 @@ before the work leaves the machine and the first where the wait buys anything.
 history: a secret is the one mistake that cannot be undone by a later commit.
 
 **Hooks mirror the fast tier only.** Nothing from the heavy tier -- no
-cross-platform build, no mutation run, no Scorecard -- ever executes locally.
+mutation run, no Scorecard, no WSL toolchain run -- ever executes locally.
 Those exist to be slow somewhere that is not a person's terminal.
+
+The fast tier gained one check a hook cannot mirror: `cross-platform` builds
+on Windows and macOS, and a contributor's machine is one of them at most. The
+mirror is a rule about cost, not a promise of completeness, and this is the
+first place the two come apart -- the check is cheap, and still unrunnable
+where the hook runs. A local pass therefore no longer implies a green pull
+request, which is worth knowing before pushing.
 
 ## Consequences
 

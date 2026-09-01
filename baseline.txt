@@ -60,6 +60,19 @@ rule deletion Organization
 rule non_fast_forward Organization
 rule pull_request Organization
 
+# The required checks themselves, which nothing watched until now.
+#
+# This one is Repository rather than Organization on purpose: the contexts
+# differ by language, so the rule that names them cannot live on the
+# organisation the way the floor does. That is also its weakness -- whoever
+# owns a repository can delete it -- which is exactly why the audit reads it.
+#
+# What this asserts is that the rule is in effect, not which contexts it
+# lists. A check removed from the list still passes this line. Naming the
+# contexts needs a directive that carries a value, and saying so here is
+# cheaper than implying coverage that does not exist.
+rule required_status_checks Repository
+
 # ── Per repository ────────────────────────────────────────────────────────
 setting web_commit_signoff_required true
 
