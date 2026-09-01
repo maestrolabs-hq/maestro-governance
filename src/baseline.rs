@@ -347,6 +347,38 @@ mod tests {
         assert_eq!(b.settings, [("has_wiki".to_owned(), "false".to_owned())]);
     }
 
+    /// A repository in the fleet must also be named by every tracked file it
+    /// carries when that file has an explicit scope.
+    #[test]
+    fn documentation_repository_is_fully_scoped() {
+        const REPO: &str = "maestro-project-documentation";
+        const SCOPED_FILES: &[&str] = &[
+            "clippy.toml",
+            "deny.toml",
+            "rust-toolchain.toml",
+            ".github/dependabot.yml",
+            ".github/release-please/config.json",
+            ".github/release-please/manifest.json",
+            "CHANGELOG.md",
+            ".pre-commit-config.yaml",
+            ".github/workflows/heavy.yml",
+        ];
+        let baseline = parse(include_str!("../baseline.txt")).expect("repository baseline parses");
+
+        assert!(baseline.repos.iter().any(|repo| repo == REPO));
+        for path in SCOPED_FILES {
+            let tracked = baseline
+                .files
+                .iter()
+                .find(|tracked| tracked.path == *path)
+                .unwrap_or_else(|| panic!("{path} is tracked"));
+            assert!(
+                tracked.scope.iter().any(|repo| repo == REPO),
+                "{path} does not cover {REPO}"
+            );
+        }
+    }
+
     #[test]
     fn comments_and_blank_lines_are_ignored() {
         let b =
