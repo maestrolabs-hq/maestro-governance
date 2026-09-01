@@ -105,7 +105,7 @@ fails.
 
 **Fix:** add both recipes, or change the README to `cargo run -- plan`.
 
-### 4. `required_status_checks` is enforced by hand and audited by nothing
+### 4. `required_status_checks` is enforced by hand and audited almost not at all
 
 `baseline.txt` asserts three rule types: `deletion`, `non_fast_forward`,
 `pull_request`. ADR-0004 is explicit that required contexts cannot live at org
@@ -115,8 +115,87 @@ The only merge-blocking control in the estate is the one control the audit
 cannot see. `read_rules` already returns every rule type in effect, so the data
 is fetched and discarded.
 
-**Fix:** add `rule required_status_checks` lines naming the seven fast-tier
-contexts, per repo.
+Partially addressed: `baseline.txt:64-74` now carries `rule
+required_status_checks Repository`, which asserts the rule is *in effect* and
+says so explicitly -- it does not assert which contexts it lists, so a check
+removed from the list still passes. The fast tier produces eleven contexts
+today and fourteen once the open pull requests merge, not the seven this entry
+originally named.
+
+**Fix:** a directive that carries a value, so the audit can assert the list
+rather than the rule's existence.
+
+### 4a. Four fast-tier gates run on every pull request and block nothing
+
+The fast tier produces eleven contexts. The ruleset requires seven, identically
+on all three Rust repositories:
+
+```text
+$ gh api repos/maestrolabs-hq/maestro-governance/rules/branches/main \
+    --jq '.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+fast / rust-format      common / secrets-scan
+fast / rust-lint        common / actions-security
+fast / rust-test        common / dependency-review
+fast / rust-audit
+```
+
+`common / prose`, `common / brief`, `common / markdown` and `common / toml`
+run, report, go red, and merge anyway.
+
+The prose says otherwise in four places:
+
+- `docs/adr/0001-how-the-ci-gates-are-shaped.md:44` -- "every check in it is a
+  required context. It is the contract"
+- `docs/adr/0001-how-the-ci-gates-are-shaped.md:111` -- "Fast tier -- each row
+  is a required context."
+- `docs/adr/0004-what-the-platform-enforces.md:51` -- "naming exactly the
+  fast-tier contexts"
+- `docs/adr/0005-every-file-says-what-it-is-for.md:25` -- "Enforced in the
+  shared fast tier"
+
+ADR-0005's whole premise -- a ratchet installed while the cost is zero -- is
+unenforced.
+
+**Fix:** add the four contexts to each repository's ruleset, or amend the four
+sentences to say which contexts are required and why the rest are advisory.
+
+### 4b. The open pull requests document enforcement they do not wire
+
+PR #31 adds to ADR-0001:
+
+> So it is a fast-tier **required context**, per operating system:
+> `fast / cross-platform (windows-latest)` / `(macos-latest)`
+
+and to `AGENTS.md:90` -- "Windows, macOS and Linux, **on every pull request**".
+No pull request in the set touches a ruleset. On merge, `cross-platform` moves
+out of heavy (weekly, not required) into fast (per-PR, still not required), and
+`no-absolute-paths` arrives advisory. Observable enforcement gain: zero, while
+three documents assert a blocking contract.
+
+This is the identical defect the same commit message names.
+
+**Fix:** add `fast / cross-platform (windows-latest)`, `fast / cross-platform
+(macos-latest)` and `common / no-absolute-paths` to the ruleset in the same
+change that merges the set -- or do not merge the documentation claiming them.
+
+### 4c. `.github` has no required status checks and no repository ruleset
+
+```text
+$ gh api repos/maestrolabs-hq/.github/rules/branches/main --jq '.[].ruleset_source_type'
+Organization   (x5, and nothing else)
+```
+
+Only the organisation floor applies, and its `pull_request` rule carries
+`required_approving_review_count: 0`. A pull request with every check red
+merges on one click -- into the repository whose `main` all four repositories
+execute on every push, including `rust-release.yml` with `contents: write`,
+`id-token: write` and `attestations: write`.
+
+Its own `ci.yml` header says: *"The one repository whose compromise reaches all
+the others was the only one with no gate."* It has CI now; it still has no gate.
+
+**Fix:** create a repository ruleset on `.github` `main` requiring the eight
+contexts it produces.
 
 ### 5. ~~`present` is documented and rejected~~ FIXED
 
@@ -160,6 +239,52 @@ cost of the org read for no gain.
 from the `.github` repo. Every repo has its own `.pre-commit-config.yaml`.
 
 **Fix:** make the ADR describe what is true, or make it true.
+
+---
+
+### 9a. `just install` omits a tool `just check` hard-requires
+
+`justfile:19` binstalls `prek cargo-deny cargo-machete cargo-llvm-cov`.
+`tests/duplication.rs:82` requires `similarity-rs` and panics by design when it
+is absent -- *"A gate that skips when its tool is missing reports green while
+looking at nothing."* `just check` runs `cargo test --all-targets`, which
+includes it. On a clean machine the documented setup followed by the documented
+check panics.
+
+This also breaks the `wsl-toolchain` job in the open dot-github pull request,
+which runs `just setup && just check` without `just install` -- so it fails
+first on `prek`, then on `similarity-rs`. The one job added to prove the
+toolchain works cannot pass.
+
+**Fix:** add `similarity-rs` to the binstall list; add `just install` before
+`just setup` in `wsl-toolchain`.
+
+### 9b. The hook labelled "similarity-rs (copy-paste)" runs the module-size test
+
+`.pre-commit-config.yaml` names a copy-paste hook whose entry invokes the
+module-size test instead. The copy-paste gate does not run locally at all,
+under a label saying it does.
+
+**Fix:** point the entry at the duplication test.
+
+### 9c. Spliced doc comments leave a public function undocumented
+
+`src/github.rs:129` is cut mid-clause and `src/github.rs:150` carries the
+orphaned tail as the whole doc for the wrong function. `src/baseline.rs:138`
+has the same splice, and `pub fn drift_rules` at `:159` has no doc comment at
+all. Introduced by `65303bd` and unnoticed since.
+
+ADR-0005 makes "every file says what it is for" a decision with a gate -- but
+the gate checks the file-level `//!` only, so item-level rot passes.
+
+**Fix:** restore the four doc comments to the functions they describe.
+
+### 9d. `baseline.txt` watches three of the five organisation rules in effect
+
+`commit_message_pattern` and `repository_visibility` are in effect and
+unwatched. Both are floor controls the estate relies on.
+
+**Fix:** add both.
 
 ---
 
