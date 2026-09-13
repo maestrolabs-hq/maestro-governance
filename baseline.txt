@@ -18,15 +18,9 @@ repo maestro-llamacpp
 repo maestro-manifests
 repo .github
 
-# Squash only. The ruleset already restricts merge methods; leaving the repo
-# settings permissive means the two disagree, and a reader cannot tell which
-# one is the intent.
-setting allow_squash_merge true
-setting allow_merge_commit false
-setting allow_rebase_merge false
-
-# A merged branch has served its purpose.
-setting delete_branch_on_merge true
+# Squash only, and a merged branch has served its purpose. Both are recorded
+# below as `pending` rather than `setting`, for a reason worth reading: see
+# "Merge methods the audit cannot see" at the foot of this file.
 
 # Unused surfaces are attack surface and rot. Issues stay: they are how a
 # finding outlives a conversation.
@@ -150,3 +144,32 @@ file .github/workflows/heavy.yml 288116c5779ca25a7b524fa131eb0b82101d7af1 maestr
 
 pending code_quality enabled
 pending code_scanning_default_setup_query_suite extended
+
+# ── Merge methods the audit cannot see ────────────────────────────────────
+# `GET /repos/{owner}/{repo}` returns these four fields only to a token with
+# classic `repo` scope. A fine-grained token carrying `Administration: read`
+# -- the recipe docs/fleet-audit.md prescribed -- omits them, and GitHub's own
+# reference for that endpoint asks for `Metadata: read` and never mentions the
+# per-field gating. Measured three times against an approved, org-allowed,
+# all-repositories token: the other five repository settings, all six
+# organisation settings, every rule and every file read correctly; only these
+# four came back empty.
+#
+# So the audit reported drift on eight repositories from its first run on
+# 2026-08-31 onward, and the values were correct the whole time.
+#
+# They stay declared, because the intent has not changed and `apply` set every
+# repository to these values on 2026-09-13. They move to `pending` because an
+# audit that cannot see a control must say so; asserting it is the claim these
+# gates exist to refuse.
+#
+# To restore them: give the audit a token that can read them -- a classic PAT
+# with `repo`, or a GitHub App installation token with Administration: read --
+# and the audit will print a promotion note for these four keys the first run
+# afterwards, because that is what a `pending` key does once it starts
+# answering. Then move these lines back to `setting`.
+
+pending allow_squash_merge true
+pending allow_merge_commit false
+pending allow_rebase_merge false
+pending delete_branch_on_merge true
