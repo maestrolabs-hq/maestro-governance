@@ -33,6 +33,8 @@ A fine-grained personal access token, stored as the repository secret
 Read-only throughout. The audit reports drift; it does not correct it, and a
 token that could would be a token worth stealing.
 
+This does **not** buy the four merge-method fields. See below.
+
 ## Why the rules are read per repository
 
 Listing organisation rulesets (`GET /orgs/{org}/rulesets`) requires
@@ -67,14 +69,34 @@ not evidence of anything.
 ```
 
 That is not drift on the repository. It says the audit asked for the field and
-the response did not carry it, which for a fine-grained token means the
-permission is missing rather than the setting being wrong. The four
-merge-method fields -- `allow_squash_merge`, `allow_merge_commit`,
-`allow_rebase_merge`, `delete_branch_on_merge` -- need **Administration: read**;
-the rest of the repository reading is satisfied by `Metadata: read`, which is
-why a token missing the first still reports most of the fleet correctly and
-looks like it is working.
+the response did not carry it.
 
-Check the token against the table above and reissue it if it falls short.
-Until it does, those four settings are unaudited: the line says so rather than
-asserting a value nobody read.
+### The four merge-method fields
+
+`allow_squash_merge`, `allow_merge_commit`, `allow_rebase_merge` and
+`delete_branch_on_merge` are returned by `GET /repos/{owner}/{repo}` **only to a
+token with classic `repo` scope**. A fine-grained token does not receive them,
+whatever its permissions say -- measured three times against an approved,
+organisation-allowed, all-repositories token carrying `Administration: read`.
+
+The endpoint's own reference asks for `Metadata: read` and documents no
+per-field gating, so this is not discoverable from the documentation. It was
+found by elimination: every other reading the audit performs -- five repository
+settings, six organisation settings, four rules, fifteen files -- succeeded with
+the same token, and only these four came back empty.
+
+The original table above was written from inference and never proved. Between
+2026-08-31 and 2026-09-13 the audit reported drift on all eight repositories
+for this reason, and the values were correct throughout.
+
+Those four lines are `pending` in `baseline.txt` today. To restore them to
+`setting`, give the audit a token that can read them -- a classic PAT with
+`repo`, or a GitHub App installation token -- and the next run prints a
+promotion note naming the keys, because that is what a `pending` key does once
+it starts answering.
+
+### Any other field
+
+Check the token against the table above and reissue it if it falls short. Until
+it does, that setting is unaudited: the line says so rather than asserting a
+value nobody read.
