@@ -20,12 +20,6 @@ const ACCEPTED: &[(&str, &str)] = &[
          part of the baseline they read. Fusing them would take a scope flag.",
     ),
     (
-        "read <-> read_org",
-        "read_org is one expression delegating to read. That is what the shape \
-         is supposed to look like after factoring; the alternative is a scope \
-         flag that switches meaning, which is worse.",
-    ),
-    (
         "arrived <-> drift",
         "Same traversal, opposite question: arrived reports keys that have \
          appeared, drift reports values that disagree.",
@@ -52,16 +46,6 @@ const ACCEPTED: &[(&str, &str)] = &[
     (
         "read_settings <-> read_files",
         "Named readers over the one `read`.",
-    ),
-    (
-        "read <-> read_rules",
-        "read_rules aggregates sources per rule type instead of letting the \
-         last one win, so it does its own gathering rather than calling read. \
-         The shapes still rhyme; the behaviour deliberately differs.",
-    ),
-    (
-        "read <-> read_settings",
-        "Same: a named entry point over the one implementation.",
     ),
     ("read_settings <-> read_org", "Same three readers."),
 ];

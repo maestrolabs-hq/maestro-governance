@@ -59,3 +59,22 @@ gh secret set GOVERNANCE_AUDIT_TOKEN --repo maestrolabs-hq/maestro-governance
 The workflow carries `workflow_dispatch` precisely so it can be run once by
 hand before its first scheduled firing. A schedule that has never executed is
 not evidence of anything.
+
+## When the report says `<unreadable>`
+
+```text
+~ allow_squash_merge : <unreadable> -> true
+```
+
+That is not drift on the repository. It says the audit asked for the field and
+the response did not carry it, which for a fine-grained token means the
+permission is missing rather than the setting being wrong. The four
+merge-method fields -- `allow_squash_merge`, `allow_merge_commit`,
+`allow_rebase_merge`, `delete_branch_on_merge` -- need **Administration: read**;
+the rest of the repository reading is satisfied by `Metadata: read`, which is
+why a token missing the first still reports most of the fleet correctly and
+looks like it is working.
+
+Check the token against the table above and reissue it if it falls short.
+Until it does, those four settings are unaudited: the line says so rather than
+asserting a value nobody read.
