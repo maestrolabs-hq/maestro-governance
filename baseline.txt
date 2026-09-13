@@ -13,6 +13,9 @@ repo maestro-core
 repo maestro-pi-config
 repo maestro-governance
 repo maestro-project-documentation
+repo maestro-herdr-config
+repo maestro-llamacpp
+repo maestro-manifests
 repo .github
 
 # Squash only. The ruleset already restricts merge methods; leaving the repo
