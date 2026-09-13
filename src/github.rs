@@ -79,15 +79,34 @@ fn gh_lines(args: &[&str]) -> Result<Vec<String>, String> {
 /// flattens the answer to `key=value` lines, and merge. Only the queries
 /// differ, so they are data rather than four near-identical functions -- which
 /// is what the duplication gate said when they were.
+/// Turn `key=value` readings into a map, dropping any the response did not
+/// carry.
+///
+/// `gh --jq` interpolates a field the JSON does not hold as the literal string
+/// `null`, so an unreadable setting arrives looking exactly like a readable one
+/// whose value happens to be wrong. Keeping it would put the key in the map,
+/// and a key in the map is how `UNREADABLE` is told the field was read.
+///
+/// The distinction is the whole point. `allow_squash_merge : null -> true`
+/// reads as a repository that needs correcting; `<unreadable> -> true` reads as
+/// an audit that could not see, which is a different problem with a different
+/// fix -- and the one the token's own documentation already describes.
+///
+/// No directive in the baseline expects the value `null`, so nothing legitimate
+/// is lost by dropping it here.
+fn parse_readings(lines: &[String]) -> BTreeMap<String, String> {
+    lines
+        .iter()
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned()))
+        .filter(|(_, v)| v != "null")
+        .collect()
+}
+
 fn read(queries: &[[&str; 2]]) -> Result<BTreeMap<String, String>, String> {
     let mut all = BTreeMap::new();
     for [path, jq] in queries {
-        all.extend(
-            gh_lines(&["api", path, "--jq", jq])?
-                .iter()
-                .filter_map(|l| l.split_once('='))
-                .map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned())),
-        );
+        all.extend(parse_readings(&gh_lines(&["api", path, "--jq", jq])?));
     }
     Ok(all)
 }
@@ -174,4 +193,47 @@ pub fn read_rules(repo: &str) -> Result<BTreeMap<String, String>, String> {
 
 fn default_branch() -> String {
     env::var("MAESTRO_DEFAULT_BRANCH").unwrap_or_else(|_| "main".to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The reading that started this: a token without `Administration: read`
+    /// gets a repository object with the merge-method fields absent, and
+    /// `gh --jq` prints them as `null`. Reported as drift they accuse the
+    /// repository; dropped here they let the audit say it could not look.
+    #[test]
+    fn a_null_reading_is_not_a_value() {
+        let lines = [
+            "allow_squash_merge=null".to_owned(),
+            "allow_merge_commit=null".to_owned(),
+            "has_wiki=false".to_owned(),
+            "visibility=public".to_owned(),
+        ];
+        let read = parse_readings(&lines);
+
+        assert!(
+            !read.contains_key("allow_squash_merge"),
+            "an unreadable field must be absent so UNREADABLE can fire"
+        );
+        assert!(!read.contains_key("allow_merge_commit"));
+
+        // Everything the token could read survives untouched.
+        assert_eq!(read.get("has_wiki").map(String::as_str), Some("false"));
+        assert_eq!(read.get("visibility").map(String::as_str), Some("public"));
+    }
+
+    /// `null` is dropped as a whole value, not as a substring: a setting whose
+    /// value merely contains those letters is still a reading.
+    #[test]
+    fn only_an_exact_null_is_dropped() {
+        let lines = [
+            "visibility=nullable".to_owned(),
+            "squash_merge_commit_title=PR_TITLE".to_owned(),
+        ];
+        let read = parse_readings(&lines);
+        assert_eq!(read.get("visibility").map(String::as_str), Some("nullable"));
+        assert_eq!(read.len(), 2);
+    }
 }
